@@ -2,6 +2,19 @@
 
 Welcome to the Visual Computing Homework repository! This repository contains the files for the homework assignment in the Visual Computing course at [University Name].
 
+## Annotation
+
+Format object keys:
+- image: path
+- annotation: List [
+	- label: label\_name
+	- coordinates:
+		- x: float
+		- y: float
+		- height: float
+		- width: float
+]
+
 ## Homework
 
 The homework assignment consists of three steps:

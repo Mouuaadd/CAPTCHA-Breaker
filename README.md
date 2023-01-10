@@ -6,14 +6,13 @@ Welcome to the Visual Computing Homework repository! This repository contains th
 
 Format object keys:
 - image: path
-- annotation: List [
+- annotation: List:
 	- label: label\_name
-	- coordinates:
+	- coordinates: List:
 		- x: float
 		- y: float
 		- height: float
 		- width: float
-]
 
 ## Homework
 

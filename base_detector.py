@@ -4,6 +4,16 @@ from typing import List, Union, Tuple
 import numpy as np
 
 
+class Centroid:
+    """
+    Class helper for generic output type
+    """
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+
 class BaseDetector(ABC):
     """
     Base class to build a detector on, to build a child of this class please implement the detect method
@@ -11,7 +21,7 @@ class BaseDetector(ABC):
     """
 
     @abstractmethod
-    def detect(self, path: str, visualize: bool = False) -> Union[List[Tuple[int, int]], np.ndarray]:
+    def detect(self, path: str, visualize: bool = False) -> Union[List[Centroid], np.ndarray]:
         """
         Method to detect some puzzle piece by giving a path this should
         return Coordinates or the base image with some opencv operation

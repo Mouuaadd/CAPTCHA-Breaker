@@ -1,7 +1,8 @@
 import numpy as np
 import cv2
+from typing import List, Tuple, Union
 
-from base_detector import BaseDetector
+from base_detector import BaseDetector, Centroid
 
 
 class EdgeDetector(BaseDetector):
@@ -19,7 +20,7 @@ class EdgeDetector(BaseDetector):
         """
         pass
 
-    def detect(self, path, visualize: bool = False):
+    def detect(self, path, visualize: bool = False) -> Union[List[Centroid], np.ndarray]:
         """
         Detects edges and intersections in the image at the specified path.
 
@@ -30,11 +31,11 @@ class EdgeDetector(BaseDetector):
             list: A list of tuples representing the (x, y) coordinates of
                 the detected intersections.
         """
-        visualization, intersections = EdgeDetector.full_edge_detection_pipe(
+        visualization, centroids = EdgeDetector.full_edge_detection_pipe(
             path)
         if visualize:
             return visualization
-        return intersections
+        return centroids
 
     @staticmethod
     def get_intersections(edges, min_length):
@@ -71,7 +72,7 @@ class EdgeDetector(BaseDetector):
         return intersections
 
     @staticmethod
-    def apply_sobel(image, threshold=150):
+    def apply_sobel(image, threshold=140):
         """
         Applies the Sobel operator to an image to detect horizontal and vertical edges.
 
@@ -105,6 +106,33 @@ class EdgeDetector(BaseDetector):
         return matrix
 
     @staticmethod
+    def get_centroids(intersections: List[Tuple[int, int]]) -> List[Centroid]:
+        top_left, bot_right = intersections
+        length = bot_right[1] - top_left[1]
+        new_top_left = [top_left[0] + length // 2, top_left[1] + length // 2]
+        new_bot_right = [bot_right[0] - length //
+                         2, bot_right[1] - length // 2]
+        return [
+            Centroid(*new_top_left),
+            Centroid(*new_bot_right)
+        ]
+
+    @staticmethod
+    def filter_intersections(intersections, margin=100):
+        top_left_coord = [float("inf"), float("inf")]
+        bot_right_coord = [-float("inf"), -float("inf")]
+        for point in intersections:
+            top_left_coord[0] = min(top_left_coord[0], point[0])
+            top_left_coord[1] = min(top_left_coord[1], point[1])
+        for point in intersections:
+            if point[0] > bot_right_coord[0]:
+                bot_right_coord[0] = point[0]
+            if point[1] > top_left_coord[0] and point[1] < top_left_coord[1] + margin:
+                bot_right_coord[1] = point[1]
+        intersections = [top_left_coord, bot_right_coord]
+        return intersections
+
+    @staticmethod
     def full_edge_detection_pipe(path):
         """
         Applies the full edge detection pipeline to an image at the specified path.
@@ -118,6 +146,8 @@ class EdgeDetector(BaseDetector):
         image = cv2.imread(path)
         sobeled_img = EdgeDetector.apply_sobel(image)
         intersections = EdgeDetector.get_intersections(sobeled_img, 40)
-        for intersect in intersections:
-            cv2.circle(image, intersect, 5, (0, 255, 0), 2)
+        intersections = EdgeDetector.filter_intersections(intersections)
+        centroids = EdgeDetector.get_centroids(intersections)
+        for coord in centroids:
+            cv2.circle(image, (coord.x, coord.y), 5, (255), 2)
         return image, intersections

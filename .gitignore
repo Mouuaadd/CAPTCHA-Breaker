@@ -4,6 +4,7 @@ __pycache__/
 venv/
 *.pkl
 *.jpg
+__init__.py
 results/
 notebooks/
 

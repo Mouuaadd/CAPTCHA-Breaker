@@ -2,3 +2,9 @@
 .ipynb_checkpoints/
 __pycache__/
 venv/
+*.pkl
+*.jpg
+results/
+notebooks/
+
+

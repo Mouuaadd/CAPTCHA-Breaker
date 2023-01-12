@@ -1,15 +1,26 @@
 import numpy as np
 import cv2
+import time
+import re
+import os
 from typing import List, Tuple, Union
 from skimage.feature import corner_peaks, corner_harris
 
 from base_detector import BaseDetector, Centroid
+from utils.squares_finder_bruteforce import find_squares
+from utils.cluster_points import cluster_points
 
-from utils.rectanglesFinder import (
-    find_squares_and_rectangles,
-    Point,
-)
-from utils.clusterPoints import cluster_points
+from argparse import ArgumentParser
+
+# Preprocessing parameters
+BLUR = False
+THRESHOLD = 25
+
+# Parameters for squares_finder func
+SQUARE_SIZE = 75
+SIZE_DELTA = 10
+X_ALIGNMENT_DELTA = 10
+Y_ALIGNMENT_DELTA = 10
 
 
 class HarrisCornersDetector(BaseDetector):
@@ -39,11 +50,26 @@ class HarrisCornersDetector(BaseDetector):
             list: A list of tuples representing the (x, y) coordinates of
                 the detected intersections.
         """
+
         visualization, centroids = HarrisCornersDetector.full_corners_detection_pipe(
             path
         )
+
+        # if results folder does not exist create one
+        if not os.path.exists("results/harris_corner_detector"):
+            os.makedirs("results/harris_corner_detector")
+
+        image_number = re.search(r"([0-9]+)(\.png)", path).group(1)
+
+        path_to_save = (
+            f"results/harris_corner_detector/result_harris_img_{image_number}.png"
+        )
+
         if visualize:
-            return visualization
+            # save the visualization
+            cv2.imwrite(path_to_save, visualization)
+            print(f"Vizualization of centroids saved at {path_to_save} !")
+
         return centroids
 
     @staticmethod
@@ -76,7 +102,7 @@ class HarrisCornersDetector(BaseDetector):
     @staticmethod
     def detect_corners(image, min_distance=10):
         """
-        Detects corners in an image using Harriq Corners Detector.
+        Detects corners in an image using Harris Corners Detector.
 
         Parameters:
             image (ndarray): The image to apply the Harris corner detector to.
@@ -108,36 +134,37 @@ class HarrisCornersDetector(BaseDetector):
         return corners
 
     @staticmethod
-    def rectangles_filter(
-        corners, distance_min=40, distance_max=130, length_delta=40, angle_delta=2
+    def squares_filter(
+        corners,
+        square_size=75,
+        size_delta=10,
+        x_alignment_delta=10,
+        y_alignment_delta=10,
     ):
         """
-        Filters out points that form rectangles from a list of corners coordinates.
+        Filters out points that form squares from a list of corners coordinates.
 
         Parameters:
             corners (list): A list of corners.
             distance_min (int): The minimum distance between two corners.
             distance_max (int): The maximum distance between two corners.
-            length_delta (int): The maximum difference between the length of two sides of a rectangle.
-            angle_delta (int): The maximum difference between the angle of two sides of a rectangle.s
+            length_delta (int): The maximum difference between the length of two sides of a square.
+            angle_delta (int): The maximum difference between the angle of two sides of a square.
 
         Returns:
-            rectangles: A list of rectangles.
+            rectangles: A list of squares.
         """
-        # Create a list of Point objects from a list of x,y coordinates
-        points = [Point(x, y) for y, x in corners]
+        # Convert to list
+        points = corners.tolist()
 
         # Find squares and rectangles in the set of points
-        rectangles = find_squares_and_rectangles(
-            points, distance_min, distance_max, length_delta, angle_delta
+        squares = find_squares(
+            points, square_size, size_delta, x_alignment_delta, y_alignment_delta
         )
 
-        # Unflatten rectangles list
-        rectangles = np.ravel(rectangles).tolist()
+        print(f"Nb of squares found:{len(squares)}")
 
-        print(f"Nb of rectangles found:{len(rectangles)}")
-
-        return rectangles
+        return squares
 
     @staticmethod
     def get_centroids(points: List[Tuple[int, int]], n_clusters=2) -> List[Centroid]:
@@ -153,11 +180,9 @@ class HarrisCornersDetector(BaseDetector):
 
         """
 
-        # Convert to numpy array
-        Px = np.array([p.x for p in points])
-        Py = np.array([p.y for p in points])
-        points = np.float32(np.column_stack((Px, Py)))
+        points = np.array(points).reshape(-1, 2).astype(np.float32)
 
+        # Compute centroids
         centroids = cluster_points(points, n_clusters)
 
         return centroids
@@ -177,24 +202,91 @@ class HarrisCornersDetector(BaseDetector):
         image = cv2.imread(path)
 
         # Apply preprocessing
-        binary = HarrisCornersDetector.apply_preprocessing(image, blur=True)
+        binary = HarrisCornersDetector.apply_preprocessing(
+            image, blur=BLUR, threshold=THRESHOLD
+        )
 
         # Detect corners
         corners = HarrisCornersDetector.detect_corners(binary)
 
         # Filter out rectangles
-        rectangles = HarrisCornersDetector.rectangles_filter(corners)
+        squares = HarrisCornersDetector.squares_filter(
+            corners,
+            square_size=SQUARE_SIZE,
+            size_delta=SIZE_DELTA,
+            x_alignment_delta=X_ALIGNMENT_DELTA,
+            y_alignment_delta=Y_ALIGNMENT_DELTA,
+        )
 
         # Compute centroids
-        centroids = HarrisCornersDetector.get_centroids(rectangles)
+        if len(squares) == 1:
+            print("Only 1 square found,computing centroids of only square")
+            centroids = HarrisCornersDetector.get_centroids(squares, n_clusters=1)
 
-        centroid_puzzle_piece = Centroid(*centroids[0])
-        centroid_hole = Centroid(*centroids[1])
+            # Get the only centroid available
+            centroid = Centroid(*centroids[0])
+            cv2.circle(
+                image,
+                (int(centroid.y), int(centroid.x)),
+                3,
+                (255),
+                2,
+            )
 
-        # Visualize the results
-        cv2.circle(
-            image, (centroid_puzzle_piece.x, centroid_puzzle_piece.y), 5, (255), 2
-        )
-        cv2.circle(image, (centroid_hole.x, centroid_hole.y), 5, (255), 2)
+        else:
+            centroids = HarrisCornersDetector.get_centroids(squares, n_clusters=2)
+
+            # Get the centroids piecewise
+            centroid_puzzle_piece = Centroid(*centroids[0])
+            centroid_hole = Centroid(*centroids[1])
+
+            # Visualize the results
+            cv2.circle(
+                image,
+                (int(centroid_puzzle_piece.y), int(centroid_puzzle_piece.x)),
+                5,
+                (255, 0, 255),
+                -1,
+            )
+            cv2.circle(
+                image,
+                (int(centroid_hole.y), int(centroid_hole.x)),
+                5,
+                (255, 0, 255),
+                -1,
+            )
 
         return image, centroids
+
+
+if __name__ == "__main__":
+
+    start_time = time.time()
+
+    # Parse the arguments
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--img_path",
+        dest="img_path",
+        default="data/0.png",
+        type=str,
+        help="Path to the image on which to apply detection.",
+    )
+
+    parser.add_argument(
+        "--viz",
+        dest="vizualize",
+        default=True,
+        type=bool,
+        help="Vizualize result of detect or not.",
+    )
+
+    args = parser.parse_args()
+
+    # Initialize the detector
+    detector = HarrisCornersDetector()
+
+    # Detect the corners
+    detector.detect(path=args.img_path, visualize=args.vizualize)
+
+    print(f"Total time: {time.time() - start_time}")

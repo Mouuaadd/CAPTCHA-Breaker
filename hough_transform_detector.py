@@ -1,11 +1,20 @@
 import numpy as np
 import cv2
+import time
+import re
+import os
 from typing import List, Tuple, Union
 from skimage.feature import corner_peaks, corner_harris
 
 from base_detector import BaseDetector, Centroid
-from utils.rectanglesFinder import find_squares_and_rectangles, Point
-from utils.clusterPoints import cluster_points
+from utils.squares_finder_bruteforce import find_squares
+from utils.cluster_points import cluster_points
+
+from argparse import ArgumentParser
+
+# Preprocessing parameters
+BLUR = False
+THRESHOLD = 25
 
 
 class HoughTransformDetector(BaseDetector):
@@ -39,8 +48,19 @@ class HoughTransformDetector(BaseDetector):
             visualization,
             centroids,
         ) = HoughTransformDetector.full_hough_transform_detection_pipe(path)
+
+        image_number = re.search(r"([0-9]+)(\.png)", path).group(1)
+
+        # if results folder does not exist create one
+        if not os.path.exists("results/hough_transform"):
+            os.makedirs("results/hough_transform")
+
+        path_to_save = f"results/hough_transform/result_hough_img_{image_number}.png"
         if visualize:
-            return visualization
+            # save the visualization
+            cv2.imwrite(path_to_save, visualization)
+            print(f"Vizualization of centroids saved at {path_to_save} !")
+
         return centroids
 
     @staticmethod
@@ -89,7 +109,7 @@ class HoughTransformDetector(BaseDetector):
             lines: A ndarray of lines detected in the image.
         """
         # Convert to uint8
-        binary_captcha = binary_captcha.astype(np.uint8)
+        binary_captcha = image.astype(np.uint8)
 
         # Apply Hough Transform
         lines = cv2.HoughLinesP(
@@ -151,9 +171,9 @@ class HoughTransformDetector(BaseDetector):
 
         return Px, Py
 
-    def get_corners(self, lines, delta=5):
-        horizontal_lines, vertical_lines = self.segment_lines(
-            self.borders_avoidance(lines, delta), 1
+    def get_corners(lines, delta=5):
+        horizontal_lines, vertical_lines = HoughTransformDetector.segment_lines(
+            HoughTransformDetector.borders_avoidance(lines, delta), 1
         )
 
         # find the intersection points (corners)
@@ -161,7 +181,7 @@ class HoughTransformDetector(BaseDetector):
         Py = []
         for h_line in horizontal_lines:
             for v_line in vertical_lines:
-                px, py = self.find_intersection(h_line, v_line)
+                px, py = HoughTransformDetector.find_intersection(h_line, v_line)
                 Px.append(px)
                 Py.append(py)
 
@@ -184,11 +204,6 @@ class HoughTransformDetector(BaseDetector):
 
         """
 
-        # Convert to numpy array
-        Px = np.array([p.x for p in points])
-        Py = np.array([p.y for p in points])
-        points = np.float32(np.column_stack((Px, Py)))
-
         centroids = cluster_points(points, n_clusters)
 
         return centroids
@@ -209,7 +224,9 @@ class HoughTransformDetector(BaseDetector):
         image = cv2.imread(path)
 
         # Apply preprocessing
-        binary_captcha = HoughTransformDetector.apply_preprocessing(image, blur=True)
+        binary_captcha = HoughTransformDetector.apply_preprocessing(
+            image, blur=BLUR, threshold=THRESHOLD
+        )
 
         # Apply Hough transform
         lines = HoughTransformDetector.apply_hough_transform(binary_captcha)
@@ -230,8 +247,47 @@ class HoughTransformDetector(BaseDetector):
 
         # Visualize the results
         cv2.circle(
-            image, (centroid_puzzle_piece.x, centroid_puzzle_piece.y), 5, (255), 2
+            image,
+            (int(centroid_puzzle_piece.x), int(centroid_puzzle_piece.y)),
+            5,
+            (255, 0, 255),
+            -1,
         )
-        cv2.circle(image, (centroid_hole.x, centroid_hole.y), 5, (255), 2)
+        cv2.circle(
+            image, (int(centroid_hole.x), int(centroid_hole.y)), 5, (255, 0, 255), -1
+        )
 
         return image, centroids
+
+
+if __name__ == "__main__":
+
+    start_time = time.time()
+
+    # Parse the arguments
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--img_path",
+        dest="img_path",
+        default="data/0.png",
+        type=str,
+        help="Path to the image on which to apply detection.",
+    )
+
+    parser.add_argument(
+        "--viz",
+        dest="vizualize",
+        default=True,
+        type=bool,
+        help="Vizualize result of detect or not.",
+    )
+
+    args = parser.parse_args()
+
+    # Initialize the detector
+    detector = HoughTransformDetector()
+
+    # Detect the corners
+    detector.detect(path=args.img_path, visualize=args.vizualize)
+
+    print(f"Total time: {time.time() - start_time}")

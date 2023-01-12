@@ -1,10 +1,14 @@
 import numpy as np
 import cv2
 import os
+import time
+import re
 from typing import List, Tuple, Union
 
 from sklearn.cluster import MiniBatchKMeans
 from sklearn.metrics import pairwise_distances
+
+from argparse import ArgumentParser
 
 # Random Forest Regressor@
 from sklearn.ensemble import RandomForestRegressor
@@ -13,8 +17,14 @@ from skimage.io import imread
 import pickle
 
 from base_detector import BaseDetector, Centroid
-from utils.clusterPoints import cluster_points
-from utils.loadJsonData import load_json_data
+from utils.cluster_points import cluster_points
+from utils.load_json_data import load_json_data
+
+# Parameters for model training
+TRAIN_SIZE = 0.7
+VOCAB_FILENAME = "vocab.pkl"
+MODEL_FILENAME = "model.pkl"
+VOCAB_SIZE = 200  # Larger values :=> slower to compute
 
 
 class BagOfSIFTSDetector(BaseDetector):
@@ -43,54 +53,38 @@ class BagOfSIFTSDetector(BaseDetector):
         Returns:
         """
         # Check if model exists
-        filename = "model.pkl"
-        if not os.path.exists(filename):
-            print("No 'model.pkl' file found")
+        if not os.path.exists(MODEL_FILENAME):
+            print(f"No {MODEL_FILENAME} file found")
             print("Training model before detection...")
-            self.train()
+            model = BagOfSIFTSDetector.train()
+
         else:
             print("Model found!")
+            print("Infering using model on provided image...")
 
             # load the model from disk
-            loaded_model = pickle.load(open(filename, "rb"))
-            centroids = loaded_model.predict()
+            model = pickle.load(open(MODEL_FILENAME, "rb"))
 
-        (
-            visualization,
-            centroids,
-        ) = BagOfSIFTSDetector.full_bag_of_sifts_detection_pipe(path)
+        visualization, centroids = BagOfSIFTSDetector.full_bos_detection_pipe(
+            [path], model
+        )
+
+        # if results folder does not exist create one
+        if not os.path.exists("results/bag_of_sifts_detector"):
+            os.makedirs("results/bag_of_sifts_detector")
+
+        image_number = re.search(r"([0-9]+)(\.png)", path).group(1)
+
+        path_to_save = (
+            f"results/bag_of_sifts_detector/result_bag_of_sifs_img_{image_number}.png"
+        )
 
         if visualize:
-            return visualization
+            # save the visualization
+            cv2.imwrite(path_to_save, visualization)
+            print(f"Vizualization of centroids saved at {path_to_save} !")
 
         return centroids
-
-    @staticmethod
-    def apply_preprocessing(image, blur=False, threshold=20):
-        """
-        Applies the Sobel operator to an image to detect horizontal and vertical edges.
-
-        Parameters:
-            image (ndarray): The image to apply the Sobel operator to.
-            threshold (int): The threshold for determining which pixels are considered edges.
-
-        Returns:
-            ndarray: A matrix of edge pixels in the image.
-        """
-        # Convert the image to grayscale
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        # Apply the Laplacian operator
-        laplacian = cv2.Laplacian(gray, cv2.CV_64F)
-
-        # Gaussian blur the image if requested
-        if blur:
-            laplacian = cv2.GaussianBlur(laplacian, (7, 7), 0)
-
-        # Apply binary thresholding
-        binary = cv2.threshold(laplacian, threshold, 255, cv2.THRESH_BINARY)[1]
-
-        return binary
 
     @staticmethod
     # load the json data
@@ -140,9 +134,9 @@ class BagOfSIFTSDetector(BaseDetector):
 
         return train_image_paths, test_image_paths, train_labels, test_labels
 
-    def get_corners(self, lines, delta=5):
-        horizontal_lines, vertical_lines = self.segment_lines(
-            self.borders_avoidance(lines, delta), 1
+    def get_corners(lines, delta=5):
+        horizontal_lines, vertical_lines = BagOfSIFTSDetector.segment_lines(
+            BagOfSIFTSDetector.borders_avoidance(lines, delta), 1
         )
 
         # find the intersection points (corners)
@@ -150,7 +144,7 @@ class BagOfSIFTSDetector(BaseDetector):
         Py = []
         for h_line in horizontal_lines:
             for v_line in vertical_lines:
-                px, py = self.find_intersection(h_line, v_line)
+                px, py = BagOfSIFTSDetector.find_intersection(h_line, v_line)
                 Px.append(px)
                 Py.append(py)
 
@@ -223,7 +217,7 @@ class BagOfSIFTSDetector(BaseDetector):
         return vocab
 
     @staticmethod
-    def get_bags_of_sifts(self, image_paths, vocab_filename, vocab_size=200):
+    def get_bags_of_sifts(image_paths, vocab_filename, vocab_size=200):
         """
         You will want to construct SIFT features here in the same way you
         did in build_vocabulary() and then assign each local feature to its nearest
@@ -260,8 +254,6 @@ class BagOfSIFTSDetector(BaseDetector):
             # Read the image
             img = imread(image_path)
 
-            # Apply preprocessing
-
             # Detect keypoints in the image and compute the feature descriptors for the keypoints
             _, descriptors = sift.detectAndCompute(img, None)
 
@@ -282,7 +274,7 @@ class BagOfSIFTSDetector(BaseDetector):
         return np.vstack(features)
 
     @staticmethod
-    def pred_bag_of_sifts_detection_pipe(path):
+    def full_bos_detection_pipe(path, model):
         """
         Runs the full Hough transform detection pipeline.
 
@@ -293,78 +285,84 @@ class BagOfSIFTSDetector(BaseDetector):
             list: A list of tuples representing the (x, y) coordinates of
                 the detected intersections.
         """
-        # Load the image
-        image = cv2.imread(path)
 
-        # Apply preprocessing
-        binary_captcha = BagOfSIFTSDetector.apply_preprocessing(image, blur=True)
+        # Get features for image
+        features = BagOfSIFTSDetector.get_bags_of_sifts(
+            path, vocab_filename=VOCAB_FILENAME, vocab_size=VOCAB_SIZE
+        )
 
-        # Apply Hough transform
-        lines = BagOfSIFTSDetector.apply_hough_transform(binary_captcha)
+        centroids = model.predict(features)
 
-        # Find the corners
-        corners = BagOfSIFTSDetector.get_corners(lines)
-
-        # Find the corners mean (corners centroids)
-        corners_centroids = BagOfSIFTSDetector.get_centroids(corners, n_clusters=8)
-
-        # Find the centroids
-        centroids = BagOfSIFTSDetector.get_centroids(corners_centroids, n_clusters=2)
-
-        centroid_puzzle_piece = Centroid(*centroids[0])
-        centroid_hole = Centroid(*centroids[1])
+        # Get the centroids piecewise
+        centroid_puzzle_piece = Centroid(*centroids[0][0:2])
+        centroid_hole = Centroid(*centroids[0][2:])
 
         # Visualize the results
+        image = imread(path[0])
         cv2.circle(
-            image, (centroid_puzzle_piece.x, centroid_puzzle_piece.y), 5, (255), 2
+            image,
+            (int(centroid_puzzle_piece.x), int(centroid_puzzle_piece.y)),
+            5,
+            (255, 0, 255),
+            3,
         )
-        cv2.circle(image, (centroid_hole.x, centroid_hole.y), 5, (255), 2)
+        cv2.circle(
+            image,
+            (int(centroid_hole.x), int(centroid_hole.y)),
+            5,
+            (255),
+            3,
+        )
 
         return image, centroids
 
-    def train(self, train_size=0.7, vocab_size=200):
+    def train(train_size=TRAIN_SIZE, vocab_size=VOCAB_SIZE):
 
         print("-" * 100)
         print("Start of model training...")
+        print("Generating training and test sets...")
         data_path = os.path.join(".", "data")
         (
             train_image_paths,
             test_image_paths,
             train_labels,
             test_labels,
-        ) = self.get_image_paths(data_path, train_size=train_size)
+        ) = BagOfSIFTSDetector.get_image_paths(data_path, train_size=train_size)
 
         print(f"Shape of training set: {train_image_paths.shape}")
         print(f"Shape of test set: {test_image_paths.shape}")
         print(f"Shape of training labels: {train_labels.shape}")
         print(f"Shape of test labels: {test_labels.shape}")
 
-        # initialise SIFT object
+        # -------- Initialise SIFT object -------- #
+
         sift = cv2.SIFT_create()
 
-        vocab_filename = "vocab.pkl"
-        vocab_size = vocab_size  # Larger values :=> slower to compute
+        # -------- Build vocabulary -------- #
 
         print("-" * 10)
         print("Building vocabulary...")
-        vocab = self.build_vocabulary(train_image_paths, vocab_size)
-        with open(vocab_filename, "wb") as f:
+        vocab = BagOfSIFTSDetector.build_vocabulary(train_image_paths, vocab_size)
+        with open(VOCAB_FILENAME, "wb") as f:
             pickle.dump(vocab, f)
-            print("{:s} saved".format(vocab_filename))
+            print("{:s} saved".format(VOCAB_FILENAME))
+
+        # -------- Build train & test features -------- #
 
         print("-" * 10)
         print("Building train & test features...")
-        train_image_feats = self.get_bags_of_sifts(
-            train_image_paths, vocab_filename, vocab_size
+        train_image_feats = BagOfSIFTSDetector.get_bags_of_sifts(
+            train_image_paths, VOCAB_FILENAME, vocab_size
         )
-        test_image_feats = self.get_bags_of_sifts(
-            test_image_paths, vocab_filename, vocab_size
+        test_image_feats = BagOfSIFTSDetector.get_bags_of_sifts(
+            test_image_paths, VOCAB_FILENAME, vocab_size
         )
 
         print("Train features shape: ", train_image_feats.shape)
         print("Test features shape: ", test_image_feats.shape)
 
-        # Initialize the regressor
+        # -------- Train model -------- #
+
         rf = RandomForestRegressor(n_estimators=50, max_depth=10, random_state=42)
 
         print("-" * 100)
@@ -373,12 +371,14 @@ class BagOfSIFTSDetector(BaseDetector):
         rf.fit(train_image_feats, train_labels)
         print("End of fitting model.")
 
-        # Predict on the test data: y_pred
+        # -------- Predict on test data -------- #
+
         test_pred_labels = rf.predict(test_image_feats)
         train_pred_labels = rf.predict(train_image_feats)
         print("-" * 100)
 
-        # Compute metrics
+        # --------- Compute metrics --------- #
+
         mse_test = mean_squared_error(test_labels, test_pred_labels)
         mse_train = mean_squared_error(train_labels, train_pred_labels)
 
@@ -388,10 +388,61 @@ class BagOfSIFTSDetector(BaseDetector):
         print(f"MSE on Train data: {mse_train} | RMSE on Train data: {rmse_train}")
         print(f"MSE on Test data: {mse_test} | RMSE on Test data: {rmse_test}")
 
-        # save the model to disk
-        filename = "model.pkl"
-        pickle.dump(rf, open(filename, "wb"))
+        # -------- Save model -------- #
+
+        model_filename = "model.pkl"
+        pickle.dump(rf, open(model_filename, "wb"))
 
         print("Model saved successfully to disk!")
 
         return rf
+
+
+if __name__ == "__main__":
+
+    start_time = time.time()
+
+    # Parse the arguments
+    parser = ArgumentParser()
+
+    parser.add_argument(
+        "--mode",
+        dest="mode",
+        default="infer",
+        type=str,
+        help="Mode of algorithm: train or infer.",
+    )
+
+    parser.add_argument(
+        "--img_path",
+        dest="img_path",
+        default="data/0.png",
+        type=str,
+        help="Path to the image on which to apply detection.",
+    )
+
+    parser.add_argument(
+        "--viz",
+        dest="vizualize",
+        default=True,
+        type=bool,
+        help="Vizualize result of detect or not.",
+    )
+
+    args = parser.parse_args()
+
+    # Initialize the detector
+    detector = BagOfSIFTSDetector()
+
+    if args.mode == "train":
+        # Train the model
+        detector.train()
+
+    elif args.mode == "infer":
+        # Detect the centroids
+        detector.detect(path=args.img_path, visualize=args.vizualize)
+
+    else:
+        raise ValueError("Invalid mode.")
+
+    print(f"Total time: {time.time() - start_time}")

@@ -150,4 +150,4 @@ class EdgeDetector(BaseDetector):
         centroids = EdgeDetector.get_centroids(intersections)
         for coord in centroids:
             cv2.circle(image, (coord.x, coord.y), 5, (255), 2)
-        return image, intersections
+        return image, centroids

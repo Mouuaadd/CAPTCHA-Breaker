@@ -5,14 +5,15 @@ Welcome to the Visual Computing Homework repository! This repository contains th
 ## Annotation
 
 Format object keys:
+
 - image: path
 - annotation: List:
-	- label: label\_name
-	- coordinates: List:
-		- x: float
-		- y: float
-		- height: float
-		- width: float
+  - label: label_name
+  - coordinates: List:
+    - x: float
+    - y: float
+    - height: float
+    - width: float
 
 ## Homework
 

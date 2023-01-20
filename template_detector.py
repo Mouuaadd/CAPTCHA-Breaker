@@ -10,15 +10,16 @@ from base_detector import BaseDetector, Centroid
 
 
 class TemplateDetector(BaseDetector):
-    def __init__(self):
-        pass
+    def __init__(self, template_hole_path: str, template_puzle_path: str):
+        self.template_hole_path = template_hole_path
+        self.template_puzzle_path = template_puzle_path
     
-    def detect(path, puzzle_template_path, hole_template_path, visualize: bool = False) -> Union[List[Centroid], np.ndarray]:
+    def detect(self, path, visualize: bool = False) -> Union[List[Centroid], np.ndarray]:
 
         #output centroid for one image, list of two coordinates one for puzzle [centroid1,centroid2]
 
-        template1 = cv.imread(puzzle_template_path,0)
-        template2 = cv.imread(hole_template_path,0)
+        template1 = cv.imread(self.template_puzzle_path,0)
+        template2 = cv.imread(self.template_hole_path,0)
         
         img = cv.imread(path,0)
         w1, h1 = template1.shape[::-1]
@@ -38,8 +39,8 @@ class TemplateDetector(BaseDetector):
         
         return([PuzzleCentroid,HoleCentroid])
             
-            
     
+    @staticmethod
     def visualizeImg(image, PuzzleCentroid: Centroid, HoleCentroid: Centroid):
         image = cv.circle(image,(int(PuzzleCentroid.x),int(PuzzleCentroid.y)), 1, (0, 0, 255), 10)
         image = cv.circle(image,(int(HoleCentroid.x),int(HoleCentroid.y)), 1, (255, 0, 0), 10)
@@ -47,4 +48,4 @@ class TemplateDetector(BaseDetector):
         print('Hole Centroid: Red')
         plt.imshow(image,cmap='gray')
         
-cd = TemplateDetector.detect(path='data/12.png',puzzle_template_path='data/Templates/puzzle2.png',hole_template_path='data/Templates/hole2.png', visualize=True)
+# cd = TemplateDetector.detect(path='data/12.png',puzzle_template_path='data/Templates/puzzle2.png',hole_template_path='data/Templates/hole2.png', visualize=True)

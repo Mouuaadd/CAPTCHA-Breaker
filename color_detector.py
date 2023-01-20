@@ -24,7 +24,7 @@ class ColorDetector(BaseDetector):
 
         se = np.ones((2,2))
         
-        img = cv.imread(path)
+        img = cv.imread(str(path))
         img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
         img = cv.GaussianBlur(img,ksize=(3,3),sigmaX=5, sigmaY = 5)
         mask1 = cv.inRange(img, Puzzle_lower_rgb, Puzzle_upper_rgb)
@@ -53,4 +53,4 @@ class ColorDetector(BaseDetector):
         image = cv.circle(image,(int(HoleCentroid.x),int(HoleCentroid.y)), 1, (255, 0, 0), 10)
         plt.imshow(image)
         
-cd = ColorDetector.detect(path='data/0.png', visualize=True)
+# cd = ColorDetector.detect(path='data/0.png', visualize=True)

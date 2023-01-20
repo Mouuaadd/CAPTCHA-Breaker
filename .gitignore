@@ -7,5 +7,4 @@ venv/
 __init__.py
 results/
 notebooks/
-
-
+!run.ipynb

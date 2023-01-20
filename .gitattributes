@@ -110,3 +110,5 @@ data/108.json filter=lfs diff=lfs merge=lfs -text
 data/32.json filter=lfs diff=lfs merge=lfs -text
 data/52.json filter=lfs diff=lfs merge=lfs -text
 data/67.json filter=lfs diff=lfs merge=lfs -text
+Captcha[[:space:]]presentation.mp4 filter=lfs diff=lfs merge=lfs -text
+run.ipynb filter=lfs diff=lfs merge=lfs -text

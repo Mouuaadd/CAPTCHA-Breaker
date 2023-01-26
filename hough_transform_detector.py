@@ -31,6 +31,13 @@ class HoughTransformDetector(BaseDetector):
         """
         pass
 
+    @staticmethod
+    def _format_output(output):
+        centroids = []
+        for centroid in output:
+            centroids.append(Centroid(centroid[0], centroid[1]))
+        return centroids
+
     def detect(
         self, path, visualize: bool = False
     ) -> Union[List[Centroid], np.ndarray]:
@@ -61,7 +68,7 @@ class HoughTransformDetector(BaseDetector):
             cv2.imwrite(path_to_save, visualization)
             print(f"Vizualization of centroids saved at {path_to_save} !")
 
-        return centroids
+        return HoughTransformDetector._format_output(centroids)
 
     @staticmethod
     def apply_preprocessing(image, blur=False, threshold=20):

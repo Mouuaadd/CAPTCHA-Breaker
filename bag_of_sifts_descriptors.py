@@ -35,11 +35,13 @@ class BagOfSIFTSDetector(BaseDetector):
         None
     """
 
-    def __init__(self):
-        """
-        Initializes a BagOfSIFTSDetector object.
-        """
-        pass
+    @staticmethod
+    def _format_output(output):
+        prunned_output = output[0]
+        centroid1 = Centroid(prunned_output[0], prunned_output[1])
+        centroid2 = Centroid(prunned_output[2], prunned_output[3])
+        centroids = [centroid1, centroid2]
+        return centroids
 
     def detect(
         self, path, visualize: bool = False
@@ -84,7 +86,7 @@ class BagOfSIFTSDetector(BaseDetector):
             cv2.imwrite(path_to_save, visualization)
             print(f"Vizualization of centroids saved at {path_to_save} !")
 
-        return centroids
+        return BagOfSIFTSDetector._format_output(centroids)
 
     @staticmethod
     # load the json data
@@ -342,7 +344,8 @@ class BagOfSIFTSDetector(BaseDetector):
 
         print("-" * 10)
         print("Building vocabulary...")
-        vocab = BagOfSIFTSDetector.build_vocabulary(train_image_paths, vocab_size)
+        vocab = BagOfSIFTSDetector.build_vocabulary(
+            train_image_paths, vocab_size)
         with open(VOCAB_FILENAME, "wb") as f:
             pickle.dump(vocab, f)
             print("{:s} saved".format(VOCAB_FILENAME))
@@ -363,7 +366,8 @@ class BagOfSIFTSDetector(BaseDetector):
 
         # -------- Train model -------- #
 
-        rf = RandomForestRegressor(n_estimators=50, max_depth=10, random_state=42)
+        rf = RandomForestRegressor(
+            n_estimators=50, max_depth=10, random_state=42)
 
         print("-" * 100)
         print("Fitting model...")
@@ -382,10 +386,13 @@ class BagOfSIFTSDetector(BaseDetector):
         mse_test = mean_squared_error(test_labels, test_pred_labels)
         mse_train = mean_squared_error(train_labels, train_pred_labels)
 
-        rmse_train = mean_squared_error(train_labels, train_pred_labels, squared=False)
-        rmse_test = mean_squared_error(test_labels, test_pred_labels, squared=False)
+        rmse_train = mean_squared_error(
+            train_labels, train_pred_labels, squared=False)
+        rmse_test = mean_squared_error(
+            test_labels, test_pred_labels, squared=False)
 
-        print(f"MSE on Train data: {mse_train} | RMSE on Train data: {rmse_train}")
+        print(
+            f"MSE on Train data: {mse_train} | RMSE on Train data: {rmse_train}")
         print(f"MSE on Test data: {mse_test} | RMSE on Test data: {rmse_test}")
 
         # -------- Save model -------- #

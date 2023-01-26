@@ -37,6 +37,33 @@ class HarrisCornersDetector(BaseDetector):
         """
         pass
 
+    @staticmethod
+    def _format_output(output):
+        centroids = []
+        for centroid in output:
+            centroids.append(Centroid(centroid[0], centroid[1]))
+        return centroids
+
+    @staticmethod
+    def is_good_n_centroids(centroids):
+        return False if len(centroids) < 2 else True
+
+    @staticmethod
+    def create_fake_centroid(centroids):
+        height = 318
+        width = 516
+        centroids = list(centroids)
+        x_left = width // 4
+        y = height // 2
+        x_right = height // 2
+        if len(centroids) == 1:
+            centroids.append([x_right, y])
+        else:
+            centroids = []
+            centroids.append([x_left, y])
+            centroids.append([x_right, y])
+        return centroids
+
     def detect(
         self, path, visualize: bool = False
     ) -> Union[List[Centroid], np.ndarray]:
@@ -54,8 +81,10 @@ class HarrisCornersDetector(BaseDetector):
         visualization, centroids = HarrisCornersDetector.full_corners_detection_pipe(
             path
         )
+        if not HarrisCornersDetector.is_good_n_centroids(centroids):
+            centroids = HarrisCornersDetector.create_fake_centroid(centroids)
 
-        # if results folder does not exist create one
+            # if results folder does not exist create one
         if not os.path.exists("results/harris_corner_detector"):
             os.makedirs("results/harris_corner_detector")
 
@@ -70,7 +99,7 @@ class HarrisCornersDetector(BaseDetector):
             cv2.imwrite(path_to_save, visualization)
             print(f"Vizualization of centroids saved at {path_to_save} !")
 
-        return centroids
+        return HarrisCornersDetector._format_output(centroids)
 
     @staticmethod
     def apply_preprocessing(image, blur=False, threshold=20):
@@ -115,7 +144,8 @@ class HarrisCornersDetector(BaseDetector):
         min_distance = 10
 
         # Compute the corner response using the Harris corner detector
-        corner_response = corner_harris(image=image, method="k", k=0.04, sigma=3)
+        corner_response = corner_harris(
+            image=image, method="k", k=0.04, sigma=3)
 
         # Find the peaks in the corner response using the corner_peaks function
         corners = corner_peaks(
@@ -221,7 +251,8 @@ class HarrisCornersDetector(BaseDetector):
         # Compute centroids
         if len(squares) == 1:
             print("Only 1 square found,computing centroids of only square")
-            centroids = HarrisCornersDetector.get_centroids(squares, n_clusters=1)
+            centroids = HarrisCornersDetector.get_centroids(
+                squares, n_clusters=1)
 
             # Get the only centroid available
             centroid = Centroid(*centroids[0])
@@ -234,7 +265,8 @@ class HarrisCornersDetector(BaseDetector):
             )
 
         else:
-            centroids = HarrisCornersDetector.get_centroids(squares, n_clusters=2)
+            centroids = HarrisCornersDetector.get_centroids(
+                squares, n_clusters=2)
 
             # Get the centroids piecewise
             centroid_puzzle_piece = Centroid(*centroids[0])

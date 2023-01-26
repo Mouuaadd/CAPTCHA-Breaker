@@ -8,3 +8,5 @@ __init__.py
 results/
 notebooks/
 !run.ipynb
+**/.DS_Store
+*.png

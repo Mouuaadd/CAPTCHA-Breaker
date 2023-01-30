@@ -67,6 +67,7 @@ class HoughTransformDetector(BaseDetector):
             # save the visualization
             cv2.imwrite(path_to_save, visualization)
             print(f"Vizualization of centroids saved at {path_to_save} !")
+            return visualization
 
         return HoughTransformDetector._format_output(centroids)
 

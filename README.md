@@ -1,8 +1,8 @@
-# Visual Computing Homework Repository
+# CAPTCHA solver with Computer Vision
 
-Welcome to the Visual Computing Homework repository! This repository contains the files for the homework assignment in the Visual Computing course at [University Name].
+Welcome to the CAPTCHA solver with Computer Vision repository! This repository contains the files for the project assignment in the Visual Computing course at CentraleSupelec.
 
-## Annotation
+## Annotations
 
 Format object keys:
 
@@ -15,14 +15,17 @@ Format object keys:
     - height: float
     - width: float
 
-## Homework
-
-The homework assignment consists of three steps:
-
-1. Edge Detection
-2. Template Matching
-3. Color Based Approach
+## Methods
 
 The goal of the homework is to implement various detector algorithms using the base detector provided in `base_detector.py`.
 
-You can see one implementation in the file `edge_detector.py`.
+CAPTCHA solving is done with one of these methods:
+
+1. Edge Detection
+2. Template Matching
+3. Color Segmentation
+4. Bag of SIFTs descriptors
+5. Hough Transform
+6. Harris corner detector
+
+To run this project, open the `run.ipynb`, uncomment the initialization of the detector you want to use, then run the cell. 

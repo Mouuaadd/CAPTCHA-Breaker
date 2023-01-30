@@ -35,7 +35,9 @@ class TemplateDetector(BaseDetector):
         HoleCentroid = Centroid(top_left2[0] + w2/2,top_left2[1] + h2/2)
         
         if visualize:
-            TemplateDetector.visualizeImg(cv.imread(path), PuzzleCentroid, HoleCentroid)
+            image = cv.imread(path)
+            image = TemplateDetector.visualizeImg(image, PuzzleCentroid, HoleCentroid)
+            return image
         
         return([PuzzleCentroid,HoleCentroid])
             
@@ -44,8 +46,6 @@ class TemplateDetector(BaseDetector):
     def visualizeImg(image, PuzzleCentroid: Centroid, HoleCentroid: Centroid):
         image = cv.circle(image,(int(PuzzleCentroid.x),int(PuzzleCentroid.y)), 1, (0, 0, 255), 10)
         image = cv.circle(image,(int(HoleCentroid.x),int(HoleCentroid.y)), 1, (255, 0, 0), 10)
-        print('Puzzle Centroid: Blue')
-        print('Hole Centroid: Red')
-        plt.imshow(image,cmap='gray')
+        return image
         
 # cd = TemplateDetector.detect(path='data/12.png',puzzle_template_path='data/Templates/puzzle2.png',hole_template_path='data/Templates/hole2.png', visualize=True)

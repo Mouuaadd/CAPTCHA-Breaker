@@ -46,7 +46,8 @@ class ColorDetector(BaseDetector):
         HoleCentroid = Centroid(x_mean_hole, y_mean_hole)
 
         if visualize:
-            ColorDetector.visualizeImg(img, PuzzleCentroid, HoleCentroid)
+            image = ColorDetector.visualizeImg(img, PuzzleCentroid, HoleCentroid)
+            return image
 
         return [PuzzleCentroid, HoleCentroid]
 
@@ -55,6 +56,6 @@ class ColorDetector(BaseDetector):
             PuzzleCentroid.y)), 1, (0, 0, 255), 10)
         image = cv.circle(image, (int(HoleCentroid.x), int(
             HoleCentroid.y)), 1, (255, 0, 0), 10)
-        plt.imshow(image)
+        return image
 
 # cd = ColorDetector.detect(path='data/0.png', visualize=True)

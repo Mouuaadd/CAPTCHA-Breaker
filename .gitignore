@@ -1,0 +1,12 @@
+*.ipynb
+.ipynb_checkpoints/
+__pycache__/
+venv/
+*.pkl
+*.jpg
+__init__.py
+results/
+notebooks/
+!run.ipynb
+**/.DS_Store
+*.png

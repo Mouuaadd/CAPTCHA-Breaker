@@ -56,13 +56,9 @@ class BagOfSIFTSDetector(BaseDetector):
         """
         # Check if model exists
         if not os.path.exists(MODEL_FILENAME):
-            print(f"No {MODEL_FILENAME} file found")
-            print("Training model before detection...")
             model = BagOfSIFTSDetector.train()
 
         else:
-            print("Model found!")
-            print("Infering using model on provided image...")
 
             # load the model from disk
             model = pickle.load(open(MODEL_FILENAME, "rb"))
@@ -84,7 +80,6 @@ class BagOfSIFTSDetector(BaseDetector):
         if visualize:
             # save the visualization
             cv2.imwrite(path_to_save, visualization)
-            print(f"Vizualization of centroids saved at {path_to_save} !")
             return visualization
 
         return BagOfSIFTSDetector._format_output(centroids)
@@ -321,9 +316,6 @@ class BagOfSIFTSDetector(BaseDetector):
 
     def train(train_size=TRAIN_SIZE, vocab_size=VOCAB_SIZE):
 
-        print("-" * 100)
-        print("Start of model training...")
-        print("Generating training and test sets...")
         data_path = os.path.join(".", "data")
         (
             train_image_paths,
@@ -332,10 +324,6 @@ class BagOfSIFTSDetector(BaseDetector):
             test_labels,
         ) = BagOfSIFTSDetector.get_image_paths(data_path, train_size=train_size)
 
-        print(f"Shape of training set: {train_image_paths.shape}")
-        print(f"Shape of test set: {test_image_paths.shape}")
-        print(f"Shape of training labels: {train_labels.shape}")
-        print(f"Shape of test labels: {test_labels.shape}")
 
         # -------- Initialise SIFT object -------- #
 
@@ -343,18 +331,13 @@ class BagOfSIFTSDetector(BaseDetector):
 
         # -------- Build vocabulary -------- #
 
-        print("-" * 10)
-        print("Building vocabulary...")
         vocab = BagOfSIFTSDetector.build_vocabulary(
             train_image_paths, vocab_size)
         with open(VOCAB_FILENAME, "wb") as f:
             pickle.dump(vocab, f)
-            print("{:s} saved".format(VOCAB_FILENAME))
 
         # -------- Build train & test features -------- #
 
-        print("-" * 10)
-        print("Building train & test features...")
         train_image_feats = BagOfSIFTSDetector.get_bags_of_sifts(
             train_image_paths, VOCAB_FILENAME, vocab_size
         )
@@ -362,25 +345,19 @@ class BagOfSIFTSDetector(BaseDetector):
             test_image_paths, VOCAB_FILENAME, vocab_size
         )
 
-        print("Train features shape: ", train_image_feats.shape)
-        print("Test features shape: ", test_image_feats.shape)
 
         # -------- Train model -------- #
 
         rf = RandomForestRegressor(
             n_estimators=50, max_depth=10, random_state=42)
 
-        print("-" * 100)
-        print("Fitting model...")
         # Fit the regressor to the data
         rf.fit(train_image_feats, train_labels)
-        print("End of fitting model.")
 
         # -------- Predict on test data -------- #
 
         test_pred_labels = rf.predict(test_image_feats)
         train_pred_labels = rf.predict(train_image_feats)
-        print("-" * 100)
 
         # --------- Compute metrics --------- #
 
@@ -392,16 +369,10 @@ class BagOfSIFTSDetector(BaseDetector):
         rmse_test = mean_squared_error(
             test_labels, test_pred_labels, squared=False)
 
-        print(
-            f"MSE on Train data: {mse_train} | RMSE on Train data: {rmse_train}")
-        print(f"MSE on Test data: {mse_test} | RMSE on Test data: {rmse_test}")
-
         # -------- Save model -------- #
 
         model_filename = "model.pkl"
         pickle.dump(rf, open(model_filename, "wb"))
-
-        print("Model saved successfully to disk!")
 
         return rf
 
@@ -452,5 +423,3 @@ if __name__ == "__main__":
 
     else:
         raise ValueError("Invalid mode.")
-
-    print(f"Total time: {time.time() - start_time}")

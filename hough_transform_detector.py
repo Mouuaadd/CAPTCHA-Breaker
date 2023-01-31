@@ -66,7 +66,6 @@ class HoughTransformDetector(BaseDetector):
         if visualize:
             # save the visualization
             cv2.imwrite(path_to_save, visualization)
-            print(f"Vizualization of centroids saved at {path_to_save} !")
             return visualization
 
         return HoughTransformDetector._format_output(centroids)
@@ -298,4 +297,3 @@ if __name__ == "__main__":
     # Detect the corners
     detector.detect(path=args.img_path, visualize=args.vizualize)
 
-    print(f"Total time: {time.time() - start_time}")

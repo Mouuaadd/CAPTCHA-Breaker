@@ -97,7 +97,6 @@ class HarrisCornersDetector(BaseDetector):
         if visualize:
             # save the visualization
             cv2.imwrite(path_to_save, visualization)
-            print(f"Vizualization of centroids saved at {path_to_save} !")
             return visualization
 
         return HarrisCornersDetector._format_output(centroids)
@@ -159,9 +158,6 @@ class HarrisCornersDetector(BaseDetector):
         if len(corners) < 8:
             raise RuntimeError("Not enough corners")
 
-        # Print the number of corners detected
-        print(f"Number of corners detected: {corners.shape[0]}")
-
         return corners
 
     @staticmethod
@@ -192,8 +188,6 @@ class HarrisCornersDetector(BaseDetector):
         squares = find_squares(
             points, square_size, size_delta, x_alignment_delta, y_alignment_delta
         )
-
-        print(f"Nb of squares found:{len(squares)}")
 
         return squares
 
@@ -251,7 +245,6 @@ class HarrisCornersDetector(BaseDetector):
 
         # Compute centroids
         if len(squares) == 1:
-            print("Only 1 square found,computing centroids of only square")
             centroids = HarrisCornersDetector.get_centroids(
                 squares, n_clusters=1)
 
@@ -321,5 +314,3 @@ if __name__ == "__main__":
 
     # Detect the corners
     detector.detect(path=args.img_path, visualize=args.vizualize)
-
-    print(f"Total time: {time.time() - start_time}")
